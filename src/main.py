@@ -1,20 +1,20 @@
-"""Application entry point.
+"""Restock Autopilot API (M3).
 
-Replace this file with your project's main logic.
+Start it with:  uvicorn src.main:app --reload --port 8000
+Interactive docs: http://localhost:8000/docs
 """
 
-import os
+from fastapi import FastAPI
 
-from utils import format_greeting, summarize
-
-
-def main() -> None:
-    project_name = os.getenv("PROJECT_NAME", "Project Name")
-    print(format_greeting(project_name))
-
-    sample_data = [12, 7, 3, 21, 9]
-    print(f"Result: {summarize(sample_data)}")
+app = FastAPI(
+    title="Restock Autopilot API",
+    description="Orbyte module: weekly reorder recommendations with human approval. "
+    "Endpoints follow docs/CONTRACT.md. All data is synthetic.",
+    version="0.1.0",
+)
 
 
-if __name__ == "__main__":
-    main()
+@app.get("/api/health", tags=["system"])
+def health() -> dict:
+    """Quick check that the server is up."""
+    return {"ok": True}

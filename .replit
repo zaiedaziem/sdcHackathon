@@ -1,5 +1,13 @@
-run = "python src/main.py"
+run = "uvicorn src.main:app --host 0.0.0.0 --port 8000"
 entrypoint = "src/main.py"
+modules = ["python-3.11", "nodejs-20"]
 
 [nix]
 channel = "stable-24_05"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
+
+[deployment]
+run = ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

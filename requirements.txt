@@ -1,2 +1,26 @@
-# Add your project dependencies here, one per line.
-runpod
+# Restock Autopilot. Python 3.11 on Replit.
+
+# Web API (M3)
+fastapi
+uvicorn[standard]
+sqlmodel
+python-multipart        # CSV uploads on /connect
+apscheduler<4           # weekly Monday 08:00 job; 4.x has a different API
+tzdata                  # Asia/Kuala_Lumpur time zone on machines without one (Windows)
+
+# Forecast engine (M1)
+pandas
+lightgbm
+holidays
+
+# Explain service (M2)
+openai
+runpod                  # RunPod serverless worker in runpod/handler.py
+
+# Trust layer (M5)
+passlib[bcrypt]
+itsdangerous
+
+# Tests
+pytest
+httpx                   # FastAPI TestClient
