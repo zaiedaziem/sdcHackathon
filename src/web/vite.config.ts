@@ -10,5 +10,13 @@ export default defineConfig({
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
     },
-  }
+  },
+  server: {
+    // The FastAPI backend (M3) runs on :8000. Proxy API calls so the browser
+    // sees one origin and the session cookie just works.
+    proxy: {
+      '/api': 'http://localhost:8000',
+      '/connect': 'http://localhost:8000',
+    },
+  },
 })
