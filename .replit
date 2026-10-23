@@ -1,6 +1,9 @@
-run = "uvicorn src.main:app --host 0.0.0.0 --port 8000"
+# Restock Autopilot on Replit: one URL. FastAPI serves the API and the built web app.
+# Run: install Python + Node packages, build src/web/dist, then start the server.
+run = "pip install -q -r requirements.txt && cd src/web && npm ci --no-audit --no-fund && npm run build && cd ../.. && uvicorn src.main:app --host 0.0.0.0 --port 8000"
 entrypoint = "src/main.py"
-modules = ["python-3.11", "nodejs-20"]
+# Node 22: Vite 8 needs 20.19+ and Vitest needs 22+.
+modules = ["python-3.11", "nodejs-22"]
 
 [nix]
 channel = "stable-24_05"
@@ -10,4 +13,5 @@ localPort = 8000
 externalPort = 80
 
 [deployment]
+build = ["sh", "-c", "pip install -r requirements.txt && cd src/web && npm ci --no-audit --no-fund && npm run build"]
 run = ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

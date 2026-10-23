@@ -18,3 +18,8 @@ src/web/dist/
 *.db
 .venv/
 data/*.db
+
+# Replit workspace files
+.pythonlibs/
+.cache/
+.upm/
