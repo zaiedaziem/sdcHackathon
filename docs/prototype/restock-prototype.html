@@ -1,0 +1,544 @@
+<title>Restock Autopilot Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: app shell — header with business and role switchers, tab row, one work area. Cards in a 2-column grid that stacks on phones. */
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --sunk:#eef1f5; --ink:#151b26; --muted:#5d6878; --line:#dde2e9;
+  --accent:#2251cc; --accent-soft:#e3eafc; --accent-ink:#ffffff;
+  --ok:#137a46; --ok-soft:#dff3e8; --warn:#9a5b00; --warn-soft:#fcefd9; --crit:#b42318; --crit-soft:#fde4e1;
+  --ui:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --num:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f131a; --surface:#171c25; --sunk:#1e2430; --ink:#e7ebf2; --muted:#9aa4b4; --line:#2a3240;
+  --accent:#7ea0ff; --accent-soft:#1f2a47; --accent-ink:#0f131a;
+  --ok:#5fd39a; --ok-soft:#163327; --warn:#f2b45a; --warn-soft:#382813; --crit:#ff8a7f; --crit-soft:#3d1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131a; --surface:#171c25; --sunk:#1e2430; --ink:#e7ebf2; --muted:#9aa4b4; --line:#2a3240;
+  --accent:#7ea0ff; --accent-soft:#1f2a47; --accent-ink:#0f131a;
+  --ok:#5fd39a; --ok-soft:#163327; --warn:#f2b45a; --warn-soft:#382813; --crit:#ff8a7f; --crit-soft:#3d1c1a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14.5px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{margin:0;line-height:1.2;text-wrap:balance}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+.label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-block:10px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.mark{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center}
+.mark svg{width:18px;height:18px}
+.brand h1{font-size:17px;font-weight:800}
+.brand small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.switch{display:flex;flex-direction:column;gap:2px}
+.switch select{padding:6px 28px 6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);font-weight:600;font-size:13.5px}
+.proto{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-weight:600}
+
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;padding-block:10px 0}
+.tab{border:0;background:none;padding:8px 14px;border-radius:8px 8px 0 0;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .count{font-family:var(--num);font-size:11px;background:var(--sunk);padding:1px 6px;border-radius:999px;margin-left:6px}
+
+main.wrap{padding-block:18px 64px}
+.view{display:flex;flex-direction:column;gap:16px}
+.view[hidden]{display:none!important}
+
+/* Run panel */
+.run{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;grid-template-columns:1fr auto;gap:14px 20px;align-items:center}
+@media (max-width:640px){.run{grid-template-columns:1fr}}
+.run h2{font-size:20px;font-weight:800}
+.run p{margin:4px 0 0;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.btn.ghost{background:none}
+.btn.danger{color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.big{padding:12px 20px;font-size:15px}
+.steps{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media (max-width:720px){.steps{grid-template-columns:1fr}}
+.step{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--muted);background:var(--sunk)}
+.step b{display:block;color:var(--ink);font-size:13px}
+.step[data-s="active"]{border-color:var(--accent);background:var(--accent-soft)}
+.step[data-s="done"]{border-color:var(--ok);background:var(--ok-soft)}
+
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:720px){.summary{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat .v{font-family:var(--num);font-size:22px;font-weight:500}
+.stat .k{font-size:12.5px;color:var(--muted)}
+
+.banner{border-radius:10px;padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:flex-start}
+.banner.crit{background:var(--crit-soft);color:var(--ink);border:1px solid var(--crit)}
+.banner.ok{background:var(--ok-soft);border:1px solid var(--ok)}
+.banner.info{background:var(--accent-soft);border:1px solid var(--accent)}
+.banner .x{margin-left:auto;border:0;background:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.cards{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card[data-status="approved"],.card[data-status="edited"]{border-color:var(--ok)}
+.card[data-status="rejected"]{opacity:.7}
+.card .head{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+.card h3{font-size:16px;font-weight:700}
+.card .sub{font-size:12.5px;color:var(--muted)}
+.flag{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.flag.reorder{background:var(--accent-soft);color:var(--accent)}
+.flag.sales_drop{background:var(--warn-soft);color:var(--warn)}
+.flag.slow_mover{background:var(--sunk);color:var(--muted)}
+.flag.near_expiry{background:var(--crit-soft);color:var(--crit)}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.facts div{background:var(--sunk);border-radius:8px;padding:8px}
+.facts .v{font-family:var(--num);font-size:16px}
+.facts .k{font-size:11.5px;color:var(--muted)}
+.facts .hi .v{color:var(--accent);font-weight:500}
+.spark{display:flex;align-items:flex-end;gap:3px;height:34px}
+.spark i{flex:1;background:var(--line);border-radius:2px 2px 0 0;min-height:2px}
+.spark i:last-child{background:var(--accent)}
+.spark-row{display:flex;gap:10px;align-items:flex-end}
+.spark-row .label{white-space:nowrap}
+.reason{margin:0;font-size:14px}
+.why{font-size:13px}
+.why summary{cursor:pointer;color:var(--accent);font-weight:600}
+.why pre{margin:8px 0 0;background:var(--sunk);border-radius:8px;padding:10px;font-family:var(--num);font-size:12px;overflow-x:auto;white-space:pre}
+.src{font-size:11.5px;color:var(--muted)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.actions .grow{flex:1}
+.edit-row,.reject-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.edit-row input,.reject-row input{padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+.edit-row input{width:96px;font-family:var(--num)}
+.reject-row input{flex:1;min-width:160px}
+.result{font-size:13px;font-weight:600}
+.result.ok{color:var(--ok)}
+.result.no{color:var(--muted)}
+
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
+
+/* Tables */
+.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right}
+.act{font-weight:700;font-size:12px;padding:2px 7px;border-radius:5px;background:var(--sunk)}
+.act.approve,.act.edit{background:var(--ok-soft);color:var(--ok)}
+.act.blocked,.act.reject{background:var(--crit-soft);color:var(--crit)}
+.act.run{background:var(--accent-soft);color:var(--accent)}
+
+/* PO */
+.po{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.po{grid-template-columns:1fr}}
+.po h3{font-size:16px}
+.wa{background:var(--ok-soft);border-radius:10px;padding:12px;white-space:pre-wrap;font-size:13.5px;min-width:0}
+
+/* How it works */
+.how{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:820px){.how{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel h3{font-size:16px;font-weight:700}
+.panel p{margin:0;color:var(--muted);font-size:13.5px}
+.panel.wide{grid-column:1/-1}
+.status{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.status.now{background:var(--ok-soft);color:var(--ok)}
+.status.next{background:var(--warn-soft);color:var(--warn)}
+.perm td:not(:first-child){text-align:center}
+.y{color:var(--ok);font-weight:700}.n{color:var(--crit);font-weight:700}
+footer{color:var(--muted);font-size:12.5px;padding-top:8px}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .2s}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg></div>
+      <div><h1>Restock Autopilot</h1><small>Orbyte module · weekly reorder decisions</small></div>
+    </div>
+    <label class="switch"><span class="label">Business</span>
+      <select id="biz"><option value="minimart">Kedai Runcit Maju · minimart</option><option value="cafe">Kopi Sudut · cafe</option></select></label>
+    <label class="switch"><span class="label">Signed in as</span>
+      <select id="role"><option value="owner">Puan Aisyah · Owner</option><option value="manager">Daniel · Manager</option><option value="staff">Mei Ling · Staff</option></select></label>
+    <span class="proto">Prototype · synthetic data</span>
+  </div>
+</header>
+<nav class="tabs" aria-label="Sections"><div class="wrap" role="tablist">
+  <button class="tab" role="tab" id="tab-check" aria-selected="true" data-v="check">Weekly check</button>
+  <button class="tab" role="tab" id="tab-po" aria-selected="false" data-v="po">Purchase orders<span class="count" id="n-po">0</span></button>
+  <button class="tab" role="tab" id="tab-log" aria-selected="false" data-v="log">Activity log<span class="count" id="n-log">0</span></button>
+  <button class="tab" role="tab" id="tab-data" aria-selected="false" data-v="data">Stock data</button>
+  <button class="tab" role="tab" id="tab-how" aria-selected="false" data-v="how">How it works</button>
+</div></nav>
+
+<main class="wrap">
+  <section class="view" id="v-check">
+    <div class="run">
+      <div>
+        <h2 id="run-title">Weekly reorder check</h2>
+        <p id="run-sub">Runs every Monday at 8:00 AM, or when a sale drops an item below its reorder point. Nothing is ordered until an Owner or Manager approves.</p>
+      </div>
+      <button class="btn primary big" id="run-btn">Run weekly check</button>
+      <div class="steps" id="steps">
+        <div class="step" data-k="trigger"><b>1 · Trigger</b>Schedule or manual run</div>
+        <div class="step" data-k="data"><b>2 · Connected data</b>POS sales, stock, supplier terms</div>
+        <div class="step" data-k="decide"><b>3 · Decision</b>Forecast + reorder rules</div>
+        <div class="step" data-k="approve"><b>4 · Human approval</b>Owner or Manager decides</div>
+        <div class="step" data-k="outcome"><b>5 · Outcome</b>Purchase order + log entry</div>
+      </div>
+    </div>
+    <div id="banner-slot"></div>
+    <div class="summary" id="summary" hidden></div>
+    <div class="cards" id="cards"><div class="empty">Press <strong>Run weekly check</strong> to see this week's recommendations.</div></div>
+  </section>
+
+  <section class="view" id="v-po" hidden>
+    <div id="po-list"><div class="empty">No approved orders yet. Approve a recommendation on the Weekly check tab.</div></div>
+  </section>
+
+  <section class="view" id="v-log" hidden>
+    <div class="banner info">Every run, approval, edit, rejection and blocked attempt is recorded here with before and after values. The log can't be edited or deleted from the app.</div>
+    <div class="tablebox"><table><thead><tr><th>Time</th><th>Who</th><th>Action</th><th>Item</th><th class="num">Before</th><th class="num">After</th><th>Note</th></tr></thead><tbody id="log-body"></tbody></table></div>
+  </section>
+
+  <section class="view" id="v-data" hidden>
+    <div class="banner info">This is the data the module reads: an item-level sales and stock feed in one simple shape any POS export or spreadsheet can produce. All figures are synthetic, generated by our team. There's no customer personal data.</div>
+    <div class="tablebox"><table><thead><tr><th>Item</th><th>Supplier</th><th class="num">Stock</th><th class="num">Lead time</th><th class="num">Min. order</th><th class="num">Unit cost</th><th>Shelf life</th><th>Last 8 weeks sold</th></tr></thead><tbody id="data-body"></tbody></table></div>
+  </section>
+
+  <section class="view" id="v-how" hidden>
+    <div class="how">
+      <div class="panel wide">
+        <h3>Build status for the mentor review</h3>
+        <p>This page is a clickable prototype of the full journey. The rules, roles, approvals and log here behave the way the real build will. The items below are what changes between now and the Saturday submission.</p>
+        <div class="tablebox"><table><thead><tr><th>Part</th><th>In this prototype</th><th>In the submitted build</th><th>Status</th></tr></thead><tbody>
+          <tr><td>Data</td><td>Small synthetic sample in the page</td><td>Python generator: 40 items × 18 months, Malaysian holidays, Ramadan, school holidays</td><td><span class="status next">Fri</span></td></tr>
+          <tr><td>Forecast</td><td>Weighted average of the last 4 weeks</td><td>LightGBM trained per item, error measured against "same as last week"</td><td><span class="status next">Fri</span></td></tr>
+          <tr><td>Reorder rules</td><td>Working: lead time, safety stock, minimum order, shelf-life cap</td><td>Same rules in Python with unit tests</td><td><span class="status now">Done</span></td></tr>
+          <tr><td>Reason text</td><td>Template sentences built from the numbers</td><td>Open-source LLM on a RunPod GPU rewrites them; template fallback if a number doesn't match</td><td><span class="status next">Fri night</span></td></tr>
+          <tr><td>Roles and approval</td><td>Working: Staff blocked, Manager limit RM 500, Owner unlimited</td><td>Same rules enforced on the server</td><td><span class="status now">Done</span></td></tr>
+          <tr><td>Activity log</td><td>Working, in this browser session</td><td>Append-only table in SQLite</td><td><span class="status now">Done</span></td></tr>
+          <tr><td>Hosting</td><td>Prototype page</td><td>Flask app deployed on Replit</td><td><span class="status next">Sat AM</span></td></tr>
+        </tbody></table></div>
+      </div>
+      <div class="panel">
+        <h3>How it fits Orbyte</h3>
+        <p>Orbyte has no native sales or stock module. Restock Autopilot pulls POS data in through Orbyte Connect and turns it into approvals inside Orbyte's existing request-and-approve flow, with the same audit trail. Because it only needs one generic data shape, the same module works for a minimart, a cafe, a hardware shop or an online seller.</p>
+<pre class="mermaid">flowchart LR
+  POS[POS or spreadsheet export] -->|Orbyte Connect| API[Restock API on Replit]
+  API --> F[Forecast model]
+  API --> R[Reorder rules]
+  API -->|numbers only| LLM[LLM on RunPod GPU]
+  LLM -->|plain-language reason| API
+  API --> A[Approval in Orbyte]
+  A --> PO[Purchase order + supplier message]
+  A --> LOG[(Activity log)]</pre>
+      </div>
+      <div class="panel">
+        <h3>Who can do what</h3>
+        <p>Login is simulated with the switcher in the header, as the brief allows.</p>
+        <div class="tablebox"><table class="perm"><thead><tr><th>Action</th><th>Owner</th><th>Manager</th><th>Staff</th></tr></thead><tbody>
+          <tr><td>View recommendations and log</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Run the weekly check</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Approve or edit an order</td><td class="y">Yes</td><td class="y">Up to RM 500</td><td class="n">No</td></tr>
+          <tr><td>Reject with a reason</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">No</td></tr>
+          <tr><td>Change supplier terms</td><td class="y">Yes</td><td class="n">No</td><td class="n">No</td></tr>
+        </tbody></table></div>
+      </div>
+    </div>
+  </section>
+  <footer>Prototype for the SDC Hackathon 2026 mentor session. All businesses, people, suppliers and figures are fictional or synthetic. Recommendations are operational suggestions about stock, not financial advice.</footer>
+</main>
+
+<script>
+/* ---------- synthetic sample data (deterministic) ---------- */
+function rng(seed){ return ()=>{ seed=(seed*1664525+1013904223)%4294967296; return seed/4294967296; }; }
+const BIZ = {
+  minimart:{name:"Kedai Runcit Maju", items:[
+    {id:"M01",name:"Beras wangi 10kg",unit:"bag",sup:"Borong Jaya",lead:3,moq:5,cost:34,stock:6,base:14,trend:.01},
+    {id:"M02",name:"Roti putih 600g",unit:"loaf",sup:"Kilang Roti Sentosa",lead:1,moq:10,cost:3.1,stock:12,base:70,trend:0,shelf:4},
+    {id:"M03",name:"Susu segar 1L",unit:"carton",sup:"Tenusu Lembah",lead:2,moq:12,cost:5.9,stock:9,base:36,trend:.02,shelf:7},
+    {id:"M04",name:"Telur gred A (tray of 30)",unit:"tray",sup:"Ladang Telur Sri Mutiara",lead:1,moq:5,cost:13.8,stock:4,base:22,trend:0,shelf:14},
+    {id:"M05",name:"Mi segera kari (5-pack)",unit:"pack",sup:"Borong Jaya",lead:3,moq:12,cost:4.2,stock:40,base:30,trend:0,drop:true},
+    {id:"M06",name:"Minyak masak 5kg",unit:"bottle",sup:"Borong Jaya",lead:3,moq:4,cost:29,stock:5,base:8,trend:.03},
+    {id:"M07",name:"Gula pasir 1kg",unit:"pack",sup:"Borong Jaya",lead:3,moq:20,cost:2.85,stock:18,base:28,trend:0},
+    {id:"M08",name:"Sardin tin 425g",unit:"tin",sup:"Borong Jaya",lead:3,moq:24,cost:6.4,stock:70,base:1,trend:0,slow:true},
+    {id:"M09",name:"Air mineral 1.5L (6s)",unit:"pack",sup:"Minuman Segar",lead:2,moq:10,cost:7.5,stock:30,base:20,trend:0},
+    {id:"M10",name:"Roti bun kaya",unit:"pack",sup:"Kilang Roti Sentosa",lead:1,moq:10,cost:2.4,stock:38,base:35,trend:0,shelf:3}
+  ]},
+  cafe:{name:"Kopi Sudut", items:[
+    {id:"C01",name:"Biji kopi house blend 1kg",unit:"bag",sup:"Roastery Bukit",lead:4,moq:2,cost:68,stock:3,base:6,trend:.02},
+    {id:"C02",name:"Susu segar 1L",unit:"carton",sup:"Tenusu Lembah",lead:2,moq:12,cost:5.9,stock:14,base:60,trend:.01,shelf:7},
+    {id:"C03",name:"Susu pekat manis",unit:"tin",sup:"Borong Jaya",lead:3,moq:24,cost:3.6,stock:30,base:24,trend:0},
+    {id:"C04",name:"Croissant (frozen, 12s)",unit:"box",sup:"Bakeri Halus",lead:3,moq:2,cost:38,stock:2,base:5,trend:.05},
+    {id:"C05",name:"Cawan kertas 12oz (100s)",unit:"sleeve",sup:"Pembungkus Utama",lead:5,moq:5,cost:16,stock:6,base:4,trend:0},
+    {id:"C06",name:"Teh Ceylon 500g",unit:"pack",sup:"Borong Jaya",lead:3,moq:6,cost:14.5,stock:20,base:1,trend:0,slow:true},
+    {id:"C07",name:"Kek coklat (whole)",unit:"cake",sup:"Bakeri Halus",lead:2,moq:2,cost:45,stock:2,base:6,trend:0,shelf:4,drop:true}
+  ]}
+};
+for(const [k,b] of Object.entries(BIZ)){
+  const r=rng(k==="cafe"?7:42);
+  for(const it of b.items){
+    it.hist=[];
+    for(let w=0;w<8;w++){
+      let v=it.base*(1+it.trend*w)*(0.85+r()*0.3);
+      if(it.drop && w===7) v*=0.4;
+      it.hist.push(Math.max(0,Math.round(v)));
+    }
+  }
+}
+const ROLE = {owner:{name:"Puan Aisyah",label:"Owner"},manager:{name:"Daniel",label:"Manager"},staff:{name:"Mei Ling",label:"Staff"}};
+const MANAGER_LIMIT = 500;
+
+/* ---------- decision logic: forecast + explainable reorder rules ---------- */
+const rm = n => "RM " + n.toFixed(2);
+function decide(it){
+  const h=it.hist, n=h.length;
+  const f = 0.4*h[n-1] + 0.3*h[n-2] + 0.2*h[n-3] + 0.1*h[n-4];
+  const mean = h.reduce((a,b)=>a+b,0)/n;
+  const sd = Math.sqrt(h.reduce((a,b)=>a+(b-mean)**2,0)/(n-1));
+  const prior4 = (h[n-2]+h[n-3]+h[n-4]+h[n-5])/4;
+  const daily = Math.max(f/7, 0.01);
+  const cover = it.stock/daily;
+  const horizon = it.lead + 7;
+  const safety = Math.ceil(0.5*sd);
+  let need = daily*horizon + safety;
+  const capped = it.shelf ? Math.min(need, daily*Math.min(horizon, it.shelf)) : need;
+  const shortfall = Math.max(0, capped - it.stock);
+  const qty = Math.ceil(shortfall/it.moq)*it.moq;
+  const low = Math.max(0, Math.round(f-1.28*sd)), high = Math.round(f+1.28*sd);
+  const calc = {f:Math.round(f), low, high, sd:+sd.toFixed(1), daily:+daily.toFixed(1), cover:+cover.toFixed(1), horizon, safety, need:Math.round(need), capped:Math.round(capped), qty, prior4:Math.round(prior4), last:h[n-1]};
+  let flag=null, reason="", action="";
+  if(it.slow && cover>60){
+    flag="slow_mover"; action="Pause reordering";
+    reason=`Only ${h[n-1]} sold last week and ${it.stock} on the shelf, which is about ${Math.round(cover/7)} weeks of stock. Pause reordering until stock falls below 4 weeks.`;
+  } else if(it.shelf && it.stock > daily*it.shelf){
+    flag="near_expiry"; action="Move to front and bundle";
+    const extra=Math.round(it.stock - daily*it.shelf);
+    reason=`${it.stock} in stock but only about ${Math.round(daily*it.shelf)} will sell within the ${it.shelf}-day shelf life. Around ${extra} could expire. Don't reorder; move them to the front shelf or bundle them.`;
+  } else if(it.drop && h[n-1] < 0.5*prior4){
+    flag="sales_drop"; action=qty>0?"Order less":"Hold";
+    reason=`Sales fell to ${h[n-1]} last week from an average of ${Math.round(prior4)}, a ${Math.round((1-h[n-1]/prior4)*100)}% drop. ${qty>0?`Order a smaller ${qty} ${it.unit}s`:"Hold this week's order"} and check shelf placement or price.`;
+  } else if(qty>0){
+    flag="reorder"; action="Reorder";
+    reason=`Stock covers about ${cover.toFixed(1)} days, but the supplier takes ${it.lead} day${it.lead>1?"s":""}. Expected sales are ${low} to ${high} next week. Order ${qty} ${it.unit}s (minimum order ${it.moq})${it.shelf?`, capped by the ${it.shelf}-day shelf life`:""}.`;
+  }
+  return flag ? {id:it.id, item:it, flag, action, qty: (flag==="slow_mover"||flag==="near_expiry") ? 0 : qty, reason, calc, status:"pending"} : null;
+}
+
+/* ---------- state ---------- */
+const S = {biz:"minimart", role:"owner", recs:{minimart:null,cafe:null}, log:[], pos:[], ui:{}};
+const $ = s=>document.querySelector(s);
+const el = (tag, cls, txt)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
+function who(){ return ROLE[S.role]; }
+function nowStr(){ return new Date().toLocaleTimeString("en-MY",{hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
+function log(action,item,before,after,note){
+  S.log.unshift({ts:nowStr(), actor:who().name, role:who().label, action, item, before, after, note, biz:BIZ[S.biz].name});
+  renderLog();
+}
+function can(op, rec){
+  if(S.role==="staff") return {ok:false, why:"Staff can view recommendations but can't approve, edit or reject orders. Ask an Owner or Manager."};
+  if(op==="approve" && S.role==="manager"){
+    const cost = rec.qty*rec.item.cost;
+    if(cost>MANAGER_LIMIT) return {ok:false, why:`This order is ${rm(cost)}. Managers can approve up to ${rm(MANAGER_LIMIT)}, so it needs the Owner.`};
+  }
+  return {ok:true};
+}
+function showBanner(kind,msg){
+  const slot=$("#banner-slot"); slot.textContent="";
+  const b=el("div","banner "+kind); b.append(el("span",null,msg));
+  const x=el("button","x","×"); x.setAttribute("aria-label","Dismiss"); x.onclick=()=>slot.textContent="";
+  b.append(x); slot.append(b);
+}
+
+/* ---------- run ---------- */
+const STEP_KEYS=["trigger","data","decide","approve","outcome"];
+function setSteps(n,doneAll){
+  document.querySelectorAll(".step").forEach((s,i)=>{ s.dataset.s = i<n ? "done" : (i===n && !doneAll ? "active" : ""); });
+}
+async function run(){
+  const btn=$("#run-btn"); btn.disabled=true; $("#banner-slot").textContent="";
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wait = ms => reduce ? Promise.resolve() : new Promise(r=>setTimeout(r,ms));
+  setSteps(0); await wait(350); setSteps(1); await wait(450); setSteps(2); await wait(550);
+  const recs = BIZ[S.biz].items.map(decide).filter(Boolean);
+  S.recs[S.biz]=recs;
+  setSteps(3);
+  log("run","All items","",`${recs.length} recommendations`,`Manual run, ${BIZ[S.biz].items.length} items checked`);
+  btn.disabled=false; btn.textContent="Run again";
+  renderCards();
+}
+
+/* ---------- render: cards ---------- */
+const FLAG_LABEL={reorder:"Reorder",sales_drop:"Sales drop",slow_mover:"Slow mover",near_expiry:"Expiry risk"};
+function renderSummary(recs){
+  const box=$("#summary"); box.textContent=""; box.hidden=!recs;
+  if(!recs) return;
+  const pending=recs.filter(r=>r.status==="pending").length;
+  const orderVal=recs.filter(r=>r.qty>0 && r.status!=="rejected").reduce((a,r)=>a+r.qty*r.item.cost,0);
+  const risk=recs.filter(r=>r.flag==="near_expiry"||r.flag==="slow_mover").reduce((a,r)=>a+r.item.stock*r.item.cost,0);
+  const okCount=BIZ[S.biz].items.length-recs.length;
+  [[pending,"waiting for approval"],[rm(orderVal),"suggested order value"],[rm(risk),"stock at risk of waste or sitting idle"],[okCount,"items fine this week"]]
+    .forEach(([v,k])=>{ const s=el("div","stat"); s.append(el("div","v",String(v)), el("div","k",k)); box.append(s); });
+}
+function renderCards(){
+  const recs=S.recs[S.biz], box=$("#cards"); box.textContent="";
+  $("#run-title").textContent = `Weekly reorder check · ${BIZ[S.biz].name}`;
+  renderSummary(recs);
+  const steps = recs ? (recs.some(r=>r.status!=="pending") ? 5 : 3) : 0;
+  if(recs) setSteps(steps, steps===5); else setSteps(-1);
+  if(!recs){ box.append(Object.assign(el("div","empty"),{innerHTML:"Press <strong>Run weekly check</strong> to see this week's recommendations."})); $("#run-btn").textContent="Run weekly check"; return; }
+  for(const r of recs) box.append(card(r));
+}
+function card(r){
+  const it=r.item, c=el("article","card"); c.dataset.status=r.status;
+  const head=el("div","head");
+  const t=el("div"); t.append(el("h3",null,it.name), el("div","sub",`${it.sup} · lead time ${it.lead} day${it.lead>1?"s":""} · min. order ${it.moq}`));
+  head.append(t, el("span","flag "+r.flag, FLAG_LABEL[r.flag]));
+  c.append(head);
+  const facts=el("div","facts");
+  [[it.stock,"in stock"],[`${r.calc.low}–${r.calc.high}`,"expected sales next week"],[r.calc.cover+"d","days of cover"],[r.qty>0?r.qty:"0","suggested order",true]]
+    .forEach(([v,k,hi])=>{ const d=el("div",hi?"hi":null); d.append(el("div","v",String(v)), el("div","k",k)); facts.append(d); });
+  c.append(facts);
+  const sp=el("div","spark-row"); const bars=el("div","spark"); const mx=Math.max(...it.hist,1);
+  it.hist.forEach(v=>{ const i=el("i"); i.style.height=(v/mx*100)+"%"; i.title=v+" sold"; bars.append(i); });
+  bars.style.flex="1"; sp.append(el("span","label","Last 8 weeks"), bars); c.append(sp);
+  c.append(el("p","reason",r.reason));
+  const why=el("details","why"); why.append(el("summary",null,"Show the calculation"));
+  why.append(el("pre",null,
+`forecast next 7 days  = 0.4×${it.hist[7]} + 0.3×${it.hist[6]} + 0.2×${it.hist[5]} + 0.1×${it.hist[4]} = ${r.calc.f}
+range (80%)           = ${r.calc.low} to ${r.calc.high}   (weekly swing σ = ${r.calc.sd})
+daily rate            = ${r.calc.daily}   → stock ${it.stock} lasts ${r.calc.cover} days
+cover needed          = lead ${it.lead}d + review 7d = ${r.calc.horizon} days
+need                  = ${r.calc.daily}×${r.calc.horizon} + safety ${r.calc.safety} = ${r.calc.need}${it.shelf?`
+shelf-life cap        = ${it.shelf} days → ${r.calc.capped}`:""}
+order                 = round up (${r.calc.capped} − ${it.stock}) to min. order ${it.moq} = ${r.calc.qty}
+order value           = ${r.qty} × ${rm(it.cost)} = ${rm(r.qty*it.cost)}`));
+  c.append(why);
+  c.append(el("div","src","Reason text: template from the computed numbers. In the final build an LLM on RunPod rewrites it in plain language and can't change the numbers."));
+
+  const ui=S.ui[r.id]||{};
+  if(r.status==="pending"){
+    if(ui.mode==="edit"){
+      const row=el("div","edit-row"); const inp=el("input"); inp.type="number"; inp.min="0"; inp.step=String(it.moq); inp.value=r.qty; inp.id="edit-"+r.id; inp.setAttribute("aria-label","New quantity");
+      const save=el("button","btn ok","Approve edited quantity"), cancel=el("button","btn ghost","Cancel");
+      save.onclick=()=>{ const v=Math.max(0,Math.round(+inp.value||0)); act(r,"edit",v); };
+      cancel.onclick=()=>{ S.ui[r.id]={}; renderCards(); };
+      row.append(inp, el("span","sub",`${it.unit}s`), save, cancel); c.append(row);
+    } else if(ui.mode==="reject"){
+      const row=el("div","reject-row"); const inp=el("input"); inp.placeholder="Reason, e.g. supplier out of stock"; inp.id="reject-"+r.id; inp.setAttribute("aria-label","Reason for rejecting");
+      const go=el("button","btn danger","Reject"), cancel=el("button","btn ghost","Cancel");
+      go.onclick=()=>{ if(!inp.value.trim()){ inp.focus(); inp.placeholder="A reason is required"; return; } act(r,"reject",null,inp.value.trim()); };
+      cancel.onclick=()=>{ S.ui[r.id]={}; renderCards(); };
+      row.append(inp, go, cancel); c.append(row);
+    } else {
+      const a=el("div","actions");
+      const ap=el("button","btn ok", r.qty>0 ? `Approve ${r.qty} · ${rm(r.qty*it.cost)}` : `Approve: ${r.action.toLowerCase()}`);
+      ap.onclick=()=>act(r,"approve",r.qty);
+      const ed=el("button","btn","Edit quantity"); ed.onclick=()=>{ if(gate(r,"edit")){ S.ui[r.id]={mode:"edit"}; renderCards(); } };
+      const rj=el("button","btn ghost danger","Reject"); rj.onclick=()=>{ if(gate(r,"reject")){ S.ui[r.id]={mode:"reject"}; renderCards(); } };
+      a.append(ap, r.qty>0?ed:el("span"), rj); c.append(a);
+    }
+  } else {
+    const msg = r.status==="rejected" ? `Rejected by ${r.by}: ${r.note}` : (r.qty>0 ? `Approved by ${r.by}: ${r.qty} ${it.unit}s added to the ${it.sup} order` : `Approved by ${r.by}: ${r.action.toLowerCase()}`);
+    c.append(el("div","result "+(r.status==="rejected"?"no":"ok"), msg));
+  }
+  return c;
+}
+function gate(r,op){
+  const g=can(op==="edit"?"approve":op,r);
+  if(!g.ok){ showBanner("crit","Blocked. "+g.why+" This attempt was recorded in the activity log."); log("blocked",r.item.name,r.qty,"", `Tried to ${op}; ${g.why}`); return false; }
+  return true;
+}
+function act(r,op,qty,note){
+  const check = op==="reject" ? can("reject",r) : can("approve",{...r, qty: qty ?? r.qty});
+  if(!check.ok){ showBanner("crit","Blocked. "+check.why+" This attempt was recorded in the activity log."); log("blocked",r.item.name,r.qty,qty??"",`Tried to ${op}; ${check.why}`); return; }
+  const before=r.qty;
+  if(op==="reject"){ r.status="rejected"; r.note=note; log("reject",r.item.name,before,"",note); }
+  else {
+    r.qty=qty; r.status = op==="edit" ? "edited" : "approved";
+    log(op==="edit"?"edit":"approve", r.item.name, before, qty, op==="edit" ? "Quantity changed before approval" : r.action);
+    if(qty>0) addToPO(r);
+  }
+  r.by=`${who().name} (${who().label})`;
+  S.ui[r.id]={}; $("#banner-slot").textContent="";
+  renderCards(); renderPO();
+}
+
+/* ---------- purchase orders ---------- */
+function addToPO(r){
+  const bizName=BIZ[S.biz].name;
+  let po=S.pos.find(p=>p.sup===r.item.sup && p.biz===bizName && !p.sent);
+  if(!po){ po={no:"PO-"+String(1041+S.pos.length), sup:r.item.sup, biz:bizName, lines:[], by:who().name}; S.pos.push(po); }
+  po.lines.push({name:r.item.name, qty:r.qty, unit:r.item.unit, cost:r.item.cost});
+  po.by = `${who().name} (${who().label})`;
+}
+function waText(po){
+  const lines=po.lines.map(l=>`• ${l.qty} × ${l.name}`).join("\n");
+  return `Hi ${po.sup}, this is ${po.biz}. We'd like to order:\n${lines}\n\nOrder ref ${po.no}. Please confirm the price and delivery date. Thank you!`;
+}
+function renderPO(){
+  const box=$("#po-list"); box.textContent="";
+  $("#n-po").textContent=S.pos.length;
+  if(!S.pos.length){ box.append(el("div","empty","No approved orders yet. Approve a recommendation on the Weekly check tab.")); return; }
+  const wrap=el("div"); wrap.style.cssText="display:flex;flex-direction:column;gap:12px";
+  for(const po of S.pos){
+    const p=el("div","po");
+    const left=el("div"); left.style.cssText="display:flex;flex-direction:column;gap:8px;min-width:0";
+    left.append(el("span","label",`${po.no} · ${po.biz}`), el("h3",null,po.sup), el("div","sub",`Approved by ${po.by}`));
+    const tb=el("div","tablebox"); const t=el("table");
+    t.innerHTML=`<thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Unit cost</th><th class="num">Total</th></tr></thead>`;
+    const body=el("tbody"); let total=0;
+    po.lines.forEach(l=>{ const tr=el("tr"); total+=l.qty*l.cost;
+      [l.name, String(l.qty), rm(l.cost), rm(l.qty*l.cost)].forEach((v,i)=>{ const td=el("td",i?"num":null,v); tr.append(td); }); body.append(tr); });
+    const tr=el("tr"); tr.append(el("td",null,"Estimated total"), el("td"), el("td"), el("td","num",rm(total))); tr.lastChild.style.fontWeight="700"; body.append(tr);
+    t.append(body); tb.append(t); left.append(tb);
+    const right=el("div"); right.style.cssText="display:flex;flex-direction:column;gap:8px;min-width:0";
+    right.append(el("span","label","Supplier message draft"));
+    const wa=el("div","wa",waText(po)); right.append(wa);
+    const row=el("div","actions"); const cp=el("button","btn","Copy message"); const st=el("span","sub","Nothing is sent automatically. Staff send it from the shop's WhatsApp.");
+    cp.onclick=async()=>{ try{ await navigator.clipboard.writeText(waText(po)); cp.textContent="Copied"; }catch(e){ const r=document.createRange(); r.selectNodeContents(wa); const s=getSelection(); s.removeAllRanges(); s.addRange(r); cp.textContent="Selected, press Ctrl+C"; } setTimeout(()=>cp.textContent="Copy message",2000); };
+    row.append(cp, st); right.append(row);
+    p.append(left,right); wrap.append(p);
+  }
+  box.append(wrap);
+}
+
+/* ---------- log + data ---------- */
+function renderLog(){
+  const body=$("#log-body"); body.textContent=""; $("#n-log").textContent=S.log.length;
+  if(!S.log.length){ const tr=el("tr"); const td=el("td",null,"No activity yet. Run the weekly check to start."); td.colSpan=7; td.style.color="var(--muted)"; tr.append(td); body.append(tr); return; }
+  for(const e of S.log){
+    const tr=el("tr");
+    const tdA=el("td"); tdA.append(el("span","act "+e.action, e.action));
+    [el("td","num",e.ts), el("td",null,`${e.actor} · ${e.role}`), tdA, el("td",null,`${e.item} · ${e.biz}`), el("td","num",String(e.before??"")), el("td","num",String(e.after??"")), el("td",null,e.note||"")].forEach(x=>tr.append(x));
+    body.append(tr);
+  }
+}
+function renderData(){
+  const body=$("#data-body"); body.textContent="";
+  for(const it of BIZ[S.biz].items){
+    const tr=el("tr"); const sp=el("td"); const bars=el("div","spark"); bars.style.height="22px"; bars.style.minWidth="90px"; const mx=Math.max(...it.hist,1);
+    it.hist.forEach(v=>{ const i=el("i"); i.style.height=(v/mx*100)+"%"; i.title=v; bars.append(i); }); sp.append(bars);
+    [el("td",null,it.name), el("td",null,it.sup), el("td","num",String(it.stock)), el("td","num",it.lead+"d"), el("td","num",String(it.moq)), el("td","num",rm(it.cost)), el("td",null,it.shelf?it.shelf+" days":"—"), sp].forEach(x=>tr.append(x));
+    body.append(tr);
+  }
+}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected", String(x===t)));
+  document.querySelectorAll(".view").forEach(v=>v.hidden = v.id!=="v-"+t.dataset.v);
+}));
+$("#run-btn").addEventListener("click",run);
+$("#biz").addEventListener("change",e=>{ S.biz=e.target.value; $("#banner-slot").textContent=""; renderCards(); renderData(); });
+$("#role").addEventListener("change",e=>{ S.role=e.target.value; $("#banner-slot").textContent=""; showBanner("info",`Now acting as ${who().name} (${who().label}).`); });
+renderCards(); renderPO(); renderLog(); renderData();
+</script>
