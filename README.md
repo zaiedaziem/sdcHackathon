@@ -1,30 +1,40 @@
-# Project Name
+# Restock Autopilot
 
-> A one-sentence description of what your project does and who it is for.
+> An Orbyte module that helps Malaysian micro and small shops (minimart, cafe, hardware, pharmacy, online seller) forecast demand and automate restock purchase orders — less busywork, better business.
 
 ---
 
 ## Team Information
 
-| Field                  | Details                                     |
-| ---------------------- | ------------------------------------------- |
-| **Team Name**          | Your Team Name                              |
-| **Team Domain**        | Domain 1 / Domain 2 *(choose one)*          |
-| **SDG Track (1–17)**   | e.g. SDG 11 — Sustainable Cities and Communities |
-| **Team Leader**        | Leader Name                                 |
-| **University**         | University Name(s)                          |
-| **Number of Members**  | e.g. 4                                      |
+| Field                  | Details                                                                 |
+| ---------------------- | ----------------------------------------------------------------------- |
+| **Team Name**          | Sudo Singles                                                            |
+| **Team Domain**        | Domain 2 — Orbyte Smart SME Challenge: Less Busywork, Better Business   |
+| **SDG Track (1–17)**   | SDG 8.2 (decent work and economic growth) and SDG 8.3 (productive employment) |
+| **Team Leader**        | Mohamad Rafeeq Haiqal Bin Mazri                                          |
+| **University**         | Universiti Teknikal Malaysia Melaka (leader); UMP, UTM, UniKL (members)  |
+| **Number of Members**  | 4                                                                       |
+| **Registered**         | 14 October 2026                                                         |
+
+## Team Members
+
+| Name                             | Role         | Email                            | University                                      |
+| -------------------------------- | ------------ | -------------------------------- | ----------------------------------------------- |
+| **Mohamad Rafeeq Haiqal Bin Mazri** | Team Leader  | oxbbn123@gmail.com               | Universiti Teknikal Malaysia Melaka             |
+| Muhammad Amir Firdaus Bin Mohd Rodhi | —            | amirfirdausrodhi123@gmail.com    | Universiti Malaysia Pahang Al-Sultan Abdullah   |
+| Muhammad Zaied Aziem Bin Mohd Zaidi | —            | zaiedaziem2@gmail.com            | University Teknologi Malaysia                   |
+| Khairul Hafizh Firdaus Bin Maasom | —            | abangkhairul2003@gmail.com       | University of Kuala Lumpur                      |
 
 ## Links
 
-| Resource          | Link                                           |
-| ----------------- | ---------------------------------------------- |
-| GitHub Repository | https://github.com/your-username/your-project  |
-| Replit Project    | https://replit.com/@your-username/your-project |
-| Live Demo         | https://your-project.replit.app                |
-| RunPod Endpoint   | https://api.runpod.ai/v2/your-endpoint-id      |
-| Slide Deck        | https://example.com/slides                     |
-| Demo Video        | https://example.com/demo-video                 |
+| Resource          | Link                                                       |
+| ----------------- | ---------------------------------------------------------- |
+| GitHub Repository | https://github.com/zaiedaziem/sdcHackathon                 |
+| Replit Project    | https://replit.com/@zaiedaziem/sdc-hackathon               |
+| Live Demo         | https://sdc-hackathon.replit.app                           |
+| RunPod Endpoint   | https://api.runpod.ai/v2/your-endpoint-id                  |
+| Slide Deck        | https://example.com/slides                                 |
+| Demo Video        | https://example.com/demo-video                             |
 
 ---
 
@@ -32,27 +42,29 @@
 
 ### Problem
 
-Describe the real-world problem you are solving in 2–4 sentences. Who is affected, and why does it matter?
+Malaysian micro and small shops — minimarts, cafes, hardware stores, pharmacies and online sellers — spend hours every week on stock management. They count shelves by hand, guess how much of each product to reorder, and lose sales when items run out or tie up cash when they over-buy. This busywork steals time from the parts of the business that actually grow revenue.
 
 ### Solution
 
-Explain how your project uses AI to solve the problem and what makes it valuable.
+Restock Autopilot is an Orbyte module that turns weekly sales and stock data into a plain-language restock plan. It reads sales and stock, forecasts demand with a LightGBM model, and proposes what to reorder with a reason for each line. An Owner or Manager approves the plan and the result is a purchase order, a WhatsApp-style supplier message and an activity log entry — all with a hash-chained audit trail. The LLM only rewords numbers our code computed; forecasts, quantities and money never come from the LLM.
 
 ### Key Features
 
-- **Feature 1** — Short description.
-- **Feature 2** — Short description.
-- **Feature 3** — Short description.
+- **Weekly check-in** — reads sales and stock, runs a forecast and produces a reorder plan in one click.
+- **Explainable recommendations** — every reorder line carries a plain-language reason (forecast, stock-out risk, supplier lead time), generated by a RunPod LLM with a template fallback and a number guard.
+- **Approval workflow** — Staff are blocked from approving; Managers can approve up to RM 500; Owners approve anything larger. Permissions are enforced server-side via `can(user, action, rec)`.
+- **Purchase order + supplier message** — on approval the system issues a PO and drafts a WhatsApp-style message to the supplier. Nothing is sent to suppliers automatically.
+- **Trust layer** — demo login, policy-based permissions, a hash-chained audit log and PDPA-compliant data handling.
 
 ### Tech Stack
 
-| Layer         | Technology                   |
-| ------------- | ---------------------------- |
-| Frontend      | e.g. HTML, React             |
-| Backend       | e.g. Python, Flask / FastAPI |
-| Database      | e.g. PostgreSQL, SQLite      |
-| AI / Compute  | RunPod (GPU)                 |
-| Hosting / Dev | Replit                       |
+| Layer         | Technology                                            |
+| ------------- | ----------------------------------------------------- |
+| Frontend      | Vite + React + TypeScript + Tailwind + shadcn/ui      |
+| Backend       | Python 3.11, FastAPI, SQLModel on SQLite, APScheduler |
+| Database      | SQLite (SQLModel)                                     |
+| AI / Compute  | LightGBM (forecast engine), RunPod vLLM GPU (LLM)     |
+| Hosting / Dev | Replit                                               |
 
 ---
 
@@ -60,32 +72,37 @@ Explain how your project uses AI to solve the problem and what makes it valuable
 
 ```
 .
-├── docs/                    # Screenshots, diagrams
+├── docs/                        # Contract, playbook, prototype, PDPA docs
 ├── runpod/
-│   └── handler.py           # RunPod serverless handler (GPU workload)
+│   └── handler.py               # RunPod serverless handler (GPU workload)
 ├── src/
-│   ├── main.py              # Application entry point
-│   └── utils.py             # Helper functions
-├── submission/              # Required submission documents
+│   ├── main.py                  # Application entry point (FastAPI + scheduler)
+│   ├── engine/                  # M1 Forecast engine (LightGBM, evaluation)
+│   ├── services/                # M2 Explain service (LLM + number guard)
+│   ├── api/                     # M3 Workflow API endpoints
+│   ├── core/                    # M3 Core (reorder rules, approvals, POs)
+│   ├── security/                # M5 Trust layer (demo login, policy, audit log)
+│   └── web/                     # M4 Web app (React + Vite + TypeScript)
+├── data/                        # Synthetic data + forecast outputs
+├── submission/                  # Required submission documents
 │   ├── REPLIT PROOF OF USE.pdf
 │   ├── RUNPOD PROOF OF USE.pdf
 │   └── Submission Template SDC Hackathon.pdf
-├── tests/
-│   └── test_utils.py        # Unit tests
-├── .env.example             # Example environment variables
+├── tests/                       # Unit tests for engine, rules, policy, audit chain
+├── .env.example                 # Example environment variables
 ├── .gitignore
-├── .replit                  # Replit run configuration
+├── .replit                      # Replit run configuration
 ├── LICENSE
-├── requirements.txt         # Python dependencies
+├── requirements.txt             # Python dependencies
 └── README.md
 ```
 
 ### Architecture
 
 ```
-User ──► Replit (App / API) ──► RunPod Endpoint (GPU model)
-                │
-                └──► Response returned to user
+Owner / Manager ──► Replit (App / API, FastAPI) ──► RunPod Endpoint (GPU LLM)
+        │                                              │
+        └──► SQLite (stock, sales, audit chain)          └──► Response returned to user
 ```
 
 ---
@@ -94,22 +111,22 @@ User ──► Replit (App / API) ──► RunPod Endpoint (GPU model)
 
 ### Option 1 — Run on Replit (Recommended)
 
-1. Open the [Replit Project](https://replit.com/@your-username/your-project), or import this repository via **Create Repl → Import from GitHub**.
+1. Open the [Replit Project](https://replit.com/@zaiedaziem/sdc-hackathon), or import this repository via **Create Repl → Import from GitHub**.
 2. Open the **Secrets** tab (🔒) and add the variables listed in `.env.example`:
    - `RUNPOD_API_KEY`
    - `RUNPOD_ENDPOINT_ID`
-3. Click **Run**. Replit uses the `.replit` file to start `python src/main.py`.
+3. Click **Run**. Replit uses the `.replit` file to start the app.
 
 ### Option 2 — Run Locally
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/your-project.git
-cd your-project
+git clone https://github.com/zaiedaziem/sdcHackathon.git
+cd sdcHackathon
 
 # 2. Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -117,21 +134,27 @@ pip install -r requirements.txt
 # 4. Configure environment variables
 cp .env.example .env            # then fill in your values
 
-# 5. Run the app
-python src/main.py
+# 5. Run the API + built web app
+uvicorn src.main:app --reload --port 8000
+```
+
+### Run the Web App (dev server)
+
+```bash
+cd src/web
+npm install
+npm run dev        # UI on :5173, proxies /api and /connect to :8000
 ```
 
 ### Run Tests
 
 ```bash
-python -m unittest discover tests
+python -m pytest -q
 ```
 
 ---
 
 ## How We Use Replit *(Required)*
-
-Describe how your team used Replit. For example:
 
 - **Development:** Collaborative coding in a shared Repl using Multiplayer.
 - **Hosting:** The app is deployed with Replit Deployments at the Live Demo link above.
@@ -141,9 +164,7 @@ Describe how your team used Replit. For example:
 
 ## How We Use RunPod *(Required)*
 
-Describe how your team used RunPod. For example:
-
-- **Workload:** Model inference (e.g. text generation, image processing) runs on a RunPod GPU.
+- **Workload:** Model inference (rewriting reorder reasons into plain language) runs on a RunPod GPU.
 - **Setup:** `runpod/handler.py` is deployed as a **RunPod Serverless Endpoint**.
 - **Integration:** The Replit app sends requests to the endpoint using `RUNPOD_API_KEY` and `RUNPOD_ENDPOINT_ID`.
 
@@ -162,34 +183,36 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 
 ## Challenges & Learnings
 
-- What challenges did you face, and how did you overcome them?
+- What challenges did your face, and how did you overcome them?
 - What did your team learn?
 
 ## Future Improvements
 
-- [ ] Improvement 1
-- [ ] Improvement 2
+- [ ] Multi-store support and per-shop seasonality tuning
+- [ ] Supplier price history and automated PO tracking
+- [ ] WhatsApp integration for real supplier confirmations
 
 ## Team
 
-| Name        | Role                | GitHub                                   |
-| ----------- | ------------------- | ---------------------------------------- |
-| Member Name | Team Lead / Backend | [@username](https://github.com/username) |
-| Member Name | Frontend            | [@username](https://github.com/username) |
-| Member Name | AI / RunPod         | [@username](https://github.com/username) |
+| Name                             | Role                          | GitHub                                  |
+| -------------------------------- | ----------------------------- | --------------------------------------- |
+| Mohamad Rafeeq Haiqal Bin Mazri  | Team Lead / Backend (M3)      | [@zaiedaziem](https://github.com/zaiedaziem) |
+| Muhammad Amir Firdaus Bin Mohd Rodhi | AI / Data (M1, M2)      | —                                       |
+| Muhammad Zaied Aziem Bin Mohd Zaidi | —                            | [@zaiedaziem](https://github.com/zaiedaziem) |
+| Khairul Hafizh Firdaus Bin Maasom | App / UI (M4)                | —                                       |
 
 ---
 
 ## Submission Checklist
 
-- [ ] Team name, domain (Domain 1 / Domain 2) and SDG track filled in
+- [x] Team name, domain (Domain 2) and SDG track filled in
 - [ ] Slide deck link added
 - [ ] Demo video link added
 - [ ] Replit used, with proof of use in `submission/`
 - [ ] RunPod used, with proof of use in `submission/`
 - [ ] Submission template completed in `submission/`
 - [ ] "How to Run" steps verified
-- [ ] No API keys or secrets committed to the repository
+- [x] No API keys or secrets committed to the repository
 
 ## License
 

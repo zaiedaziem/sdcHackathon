@@ -11,3 +11,10 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# App
+node_modules/
+src/web/dist/
+*.db
+.venv/
+data/*.db
