@@ -6,6 +6,8 @@ Interactive docs: http://localhost:8000/docs
 
 from fastapi import FastAPI
 
+from src.api.routes import connect_router, router
+
 app = FastAPI(
     title="Restock Autopilot API",
     description="Orbyte module: weekly reorder recommendations with human approval. "
@@ -18,3 +20,7 @@ app = FastAPI(
 def health() -> dict:
     """Quick check that the server is up."""
     return {"ok": True}
+
+
+app.include_router(router)
+app.include_router(connect_router)
